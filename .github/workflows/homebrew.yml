@@ -20,7 +20,7 @@ jobs:
           git config --local user.name "GitHub Action"
           git pull origin 1.x
 
-      - name: Pull, commit, and push to homebrew-deepldoc
+      - name: Pull, commit, and push to homebrew fomula repository
         run: |
           git pull origin 1.x
           git config --local user.email "action@github.com"
@@ -40,7 +40,7 @@ jobs:
         run: |
           echo "require 'octokit'" >> script.rb
           echo "client = Octokit::Client.new(access_token: ENV['GITHUB_TOKEN'])" >> script.rb
-          echo "repo = 'koriym/deepldoc'" >> script.rb
+          echo "repo = 'alps-asd/app-state-diagram'" >> script.rb
           echo "latest_release = client.latest_release(repo)" >> script.rb
           echo "puts \"::set-output name=tag::#{latest_release.tag_name}\"" >> script.rb
           ruby script.rb
@@ -49,7 +49,8 @@ jobs:
 
       - name: Download release tarball
         run: |
-          wget https://github.com/koriym/deepldoc/releases/download/${{ steps.latest_release.outputs.tag }}/${{ matrix.command }}
+          wget https://github.com/alps-asd/app-state-diagram/releases/download/${{ steps.latest_release.outputs.tag }}/${{ matrix.command }}
+          wget https://github.com/alps-asd/app-state-diagram/releases/download/${{ steps.latest_release.outputs.tag }}/${{ matrix.command }}
 
       - name: Calculate SHA256
         id: sha
@@ -61,7 +62,7 @@ jobs:
           pwd
           ls
           if [ -f "./${{ matrix.command }}.rb" ]; then 
-          ruby -pi -e "gsub(/url \".*\"/, \"url \\\"https://github.com/koriym/deepldoc/releases/download/${{ steps.latest_release.outputs.tag }}/${{ matrix.command }}\\\"\")" ./${{ matrix.command }}.rb
+          ruby -pi -e "gsub(/url \".*\"/, \"url \\\"https://github.com/alps-asd/app-state-diagram/releases/download/${{ steps.latest_release.outputs.tag }}/${{ matrix.command }}\\\"\")" ./${{ matrix.command }}.rb
           ruby -pi -e "gsub(/sha256 \".*\"/, \"sha256 \\\"${{ steps.sha.outputs.sha }}\\\"\")" ./${{ matrix.command }}.rb
           else
           echo "${{ matrix.command }}.rb not found"
