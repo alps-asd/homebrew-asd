@@ -1,0 +1,76 @@
+name: Update Homebrew Formula
+
+on:
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        command: ['asd']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set Git user information and pull
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git pull origin 1.x
+
+      - name: Pull, commit, and push to homebrew-deepldoc
+        run: |
+          git pull origin 1.x
+          git config --local user.email "action@github.com"
+          git commit -am "Update to ${{ steps.latest_release.outputs.tag }}" --allow-empty
+          git push origin 1.x
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.0
+
+      - name: Install dependencies
+        run: gem install octokit faraday
+
+      - name: Fetch latest release tag
+        id: latest_release
+        run: |
+          echo "require 'octokit'" >> script.rb
+          echo "client = Octokit::Client.new(access_token: ENV['GITHUB_TOKEN'])" >> script.rb
+          echo "repo = 'koriym/deepldoc'" >> script.rb
+          echo "latest_release = client.latest_release(repo)" >> script.rb
+          echo "puts \"::set-output name=tag::#{latest_release.tag_name}\"" >> script.rb
+          ruby script.rb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download release tarball
+        run: |
+          wget https://github.com/koriym/deepldoc/releases/download/${{ steps.latest_release.outputs.tag }}/${{ matrix.command }}
+
+      - name: Calculate SHA256
+        id: sha
+        run: |
+          echo "::set-output name=sha::$(sha256sum ./${{ matrix.command }} | awk '{ print $1 }')"
+
+      - name: Update Ruby file
+        run: |
+          pwd
+          ls
+          if [ -f "./${{ matrix.command }}.rb" ]; then 
+          ruby -pi -e "gsub(/url \".*\"/, \"url \\\"https://github.com/koriym/deepldoc/releases/download/${{ steps.latest_release.outputs.tag }}/${{ matrix.command }}\\\"\")" ./${{ matrix.command }}.rb
+          ruby -pi -e "gsub(/sha256 \".*\"/, \"sha256 \\\"${{ steps.sha.outputs.sha }}\\\"\")" ./${{ matrix.command }}.rb
+          else
+          echo "${{ matrix.command }}.rb not found"
+          fi
+
+      - name: Commit and push if it changed
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git pull origin 1.x
+          git commit -am "Update to ${{ steps.latest_release.outputs.tag }}" --allow-empty
+          git push
