@@ -6,9 +6,6 @@ on:
 jobs:
   update:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        command: ['asd']
 
     steps:
       - name: Checkout code
@@ -49,29 +46,27 @@ jobs:
 
       - name: Download release tarball
         run: |
-          wget https://github.com/alps-asd/app-state-diagram/releases/download/${{ steps.latest_release.outputs.tag }}/${{ matrix.command }}
-          wget https://github.com/alps-asd/app-state-diagram/releases/download/${{ steps.latest_release.outputs.tag }}/${{ matrix.command }}
+          wget https://github.com/alps-asd/app-state-diagram/archive/refs/tags/${{ steps.latest_release.outputs.tag }}.tar.gz
 
       - name: Calculate SHA256
         id: sha
         run: |
-          echo "::set-output name=sha::$(sha256sum ./${{ matrix.command }} | awk '{ print $1 }')"
+          echo "::set-output name=sha::$(sha256sum ./${{ steps.latest_release.outputs.tag }}.tar.gz | awk '{ print $1 }')"
 
       - name: Update Ruby file
         run: |
           pwd
           ls
-          if [ -f "./${{ matrix.command }}.rb" ]; then 
-          ruby -pi -e "gsub(/url \".*\"/, \"url \\\"https://github.com/alps-asd/app-state-diagram/releases/download/${{ steps.latest_release.outputs.tag }}/${{ matrix.command }}\\\"\")" ./${{ matrix.command }}.rb
-          ruby -pi -e "gsub(/sha256 \".*\"/, \"sha256 \\\"${{ steps.sha.outputs.sha }}\\\"\")" ./${{ matrix.command }}.rb
+          if [ -f "./asd.rb" ]; then 
+          ruby -pi -e "gsub(/url \".*\"/, \"url \\\"https://github.com/alps-asd/app-state-diagram/archive/refs/tags/${{ steps.latest_release.outputs.tag }}.tar.gz\\\"\")" ./asd.rb
+          ruby -pi -e "gsub(/sha256 \".*\"/, \"sha256 \\\"${{ steps.sha.outputs.sha }}\\\"\")" ./asd.rb
           else
-          echo "${{ matrix.command }}.rb not found"
+          echo "asd.rb not found"
           fi
 
       - name: Commit and push if it changed
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git pull origin 1.x
           git commit -am "Update to ${{ steps.latest_release.outputs.tag }}" --allow-empty
           git push
