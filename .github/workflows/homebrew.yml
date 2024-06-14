@@ -46,7 +46,7 @@ jobs:
 
       - name: Download release tarball
         run: |
-          wget https://github.com/alps-asd/app-state-diagram/archive/refs/tags/${{ steps.latest_release.outputs.tag }}.tar.gz
+          wget https://github.com/alps-asd/app-state-diagram/releases/download{{ steps.latest_release.outputs.tag }}/asd.phar
 
       - name: Calculate SHA256
         id: sha
@@ -58,7 +58,7 @@ jobs:
           pwd
           ls
           if [ -f "./asd.rb" ]; then 
-          ruby -pi -e "gsub(/url \".*\"/, \"url \\\"https://github.com/alps-asd/app-state-diagram/archive/refs/tags/${{ steps.latest_release.outputs.tag }}.tar.gz\\\"\")" ./asd.rb
+          ruby -pi -e "gsub(/url \".*\"/, \"url \\\"https://github.com/alps-asd/app-state-diagram/releases/download/${{ steps.latest_release.outputs.tag }}/asd.phar\\\"\")" ./asd.rb
           ruby -pi -e "gsub(/sha256 \".*\"/, \"sha256 \\\"${{ steps.sha.outputs.sha }}\\\"\")" ./asd.rb
           else
           echo "asd.rb not found"
