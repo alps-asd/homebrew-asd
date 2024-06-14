@@ -51,7 +51,7 @@ jobs:
       - name: Calculate SHA256
         id: sha
         run: |
-          echo "::set-output name=sha::$(sha256sum ./${{ steps.latest_release.outputs.tag }}.tar.gz | awk '{ print $1 }')"
+          echo "::set-output name=sha::$(sha256sum ./${{ steps.latest_release.outputs.tag }}/asd.phar | awk '{ print $1 }')"
 
       - name: Update Ruby file
         run: |
