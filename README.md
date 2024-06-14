@@ -3,6 +3,12 @@
 ## Install
 
 ```
+brew install alps-asd/asd/asd
+```
+
+or
+
+```
 brew tap alps-asd/asd
 brew install asd
 ```
