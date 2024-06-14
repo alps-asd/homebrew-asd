@@ -46,7 +46,7 @@ jobs:
 
       - name: Download release tarball
         run: |
-          wget https://github.com/alps-asd/app-state-diagram/releases/download{{ steps.latest_release.outputs.tag }}/asd.phar
+          wget https://github.com/alps-asd/app-state-diagram/releases/download/${{ steps.latest_release.outputs.tag }}/asd.phar
 
       - name: Calculate SHA256
         id: sha
