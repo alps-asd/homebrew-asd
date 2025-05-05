@@ -5,7 +5,7 @@ class Asd < Formula
   sha256 "2a38de29cf8805207389ac82ce02a5de2378b4b05b4e279fce403cc5976d6cb6"
   license "MIT"
 
-  depends_on "php@8.3"
+  depends_on "php@8.4"
   depends_on "composer" => :build
   depends_on "node"
 
