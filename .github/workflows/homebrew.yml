@@ -59,6 +59,14 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add ./asd.rb
-          git commit -m "Update to ${{ steps.latest_release.outputs.tag }}" || echo "No changes to commit"
-          git push origin 1.x
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          # Only proceed if there are changes to asd.rb
+          if git diff --quiet HEAD -- asd.rb; then
+            echo "No changes in asd.rb, skipping commit"
+          else
+            git add ./asd.rb
+            git commit -m "Update to ${{ steps.latest_release.outputs.tag }}"
+            git push origin 1.x
+          fi
