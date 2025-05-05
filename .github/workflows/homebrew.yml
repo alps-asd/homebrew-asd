@@ -1,64 +1,92 @@
 name: Update Homebrew Formula
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # Manual execution trigger
 
 jobs:
   update:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Check out the code of the target branch (1.x)
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set Git user information and pull
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git pull origin 1.x
-
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
         with:
-          ruby-version: 3.0
+          ref: '1.x' # Directly check out the 1.x branch
 
-      - name: Install dependencies
-        run: gem install octokit faraday
-
-      - name: Fetch latest release tag
+      # 2. Get the latest release information from the alps-asd/app-state-diagram repository
+      - name: Fetch latest release info
         id: latest_release
         run: |
-          echo "require 'octokit'" >> script.rb
-          echo "client = Octokit::Client.new(access_token: ENV['GITHUB_TOKEN'])" >> script.rb
-          echo "repo = 'alps-asd/app-state-diagram'" >> script.rb
-          echo "latest_release = client.latest_release(repo)" >> script.rb
-          echo "puts \"::set-output name=tag::#{latest_release.tag_name}\"" >> script.rb
-          ruby script.rb
+          # Get the tag name of the latest release using GitHub CLI
+          tag_name=$(gh release view --repo alps-asd/app-state-diagram --json tagName --jq .tagName)
+          # Remove the leading 'v' from the tag name to get the version number (e.g., v1.2.3 -> 1.2.3)
+          version=${tag_name#v}
+          echo "tag=${tag_name}" >> $GITHUB_OUTPUT
+          echo "version=${version}" >> $GITHUB_OUTPUT
         env:
+          # gh command automatically uses GITHUB_TOKEN
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # 3. Download the .phar file of the latest release
       - name: Download release phar
         run: |
+          # Download asd.phar for the specified tag using wget
           wget https://github.com/alps-asd/app-state-diagram/releases/download/${{ steps.latest_release.outputs.tag }}/asd.phar
 
+      # 4. Calculate the SHA256 hash of the downloaded file
       - name: Calculate SHA256
         id: sha
         run: |
-          echo "::set-output name=sha::$(sha256sum asd.phar | awk '{ print $1 }')"
+          # Calculate the hash with sha256sum and set the result to the output
+          phar_sha=$(sha256sum asd.phar | awk '{ print $1 }')
+          echo "sha=${phar_sha}" >> $GITHUB_OUTPUT
 
-      - name: Update Ruby file
+      # 5. Update the Homebrew Formula file (Formula/asd.rb)
+      - name: Update Homebrew Formula file
         run: |
-          if [ -f "./asd.rb" ]; then 
-            ruby -pi -e "gsub(/url \".*\"/, \"url \\\"https://github.com/alps-asd/app-state-diagram/releases/download/${{ steps.latest_release.outputs.tag }}/asd.phar\\\"\")" ./asd.rb
-            ruby -pi -e "gsub(/sha256 \".*\"/, \"sha256 \\\"${{ steps.sha.outputs.sha }}\\\"\")" ./asd.rb
+          # Specify the path to the Formula file
+          FORMULA_FILE="./Formula/asd.rb"
+          if [ -f "$FORMULA_FILE" ]; then
+            # Update the version, url, and sha256 lines using sed
+            # -i: Edit files in-place
+            # -e: Specify multiple editing commands
+            # |: Use pipe as a delimiter for sed instead of slash (to avoid escaping slashes in URLs)
+            sed -i \
+              -e "s|version \".*\"|version \"${{ steps.latest_release.outputs.version }}\"|" \
+              -e "s|url \".*\"|url \"https://github.com/alps-asd/app-state-diagram/releases/download/${{ steps.latest_release.outputs.tag }}/asd.phar\"|" \
+              -e "s|sha256 \".*\"|sha256 \"${{ steps.sha.outputs.sha }}\"|" \
+              "$FORMULA_FILE"
+            echo "Updated $FORMULA_FILE"
           else
-            echo "asd.rb not found"
+            echo "$FORMULA_FILE not found. Skipping update."
+            # Optionally, exit with an error here if necessary
+            exit 1 # Example: exit with an error if the file is not found
           fi
+        # Temporarily delete the downloaded phar file (optional)
+      - name: Clean up downloaded phar
+        run: rm -f asd.phar
 
-      - name: Commit and push if it changed
+      # 6. Commit and push if there are changes
+      - name: Commit and push if changed
         run: |
+          # Configure Git user information
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add ./asd.rb
-          git commit -m "Update to ${{ steps.latest_release.outputs.tag }}" || echo "No changes to commit"
+
+          # Stage the changes (path corrected to Formula directory)
+          git add ./Formula/asd.rb
+
+          # Check if there are staged changes and commit if there are.
+          # git diff --staged --quiet returns exit code 1 if there are changes, 0 otherwise
+          if ! git diff --staged --quiet; then
+            git commit -m "Update Homebrew formula to ${{ steps.latest_release.outputs.tag }}"
+            echo "Changes committed."
+          else
+            echo "No changes to commit."
+            # Exit the script here if there are no changes
+            exit 0
+          fi
+
+          # Push to the 1.x branch
           git push origin 1.x
