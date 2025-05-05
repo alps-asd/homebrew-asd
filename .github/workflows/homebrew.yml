@@ -9,7 +9,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Set Git user information and pull
         run: |
@@ -59,14 +59,6 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          # Only proceed if there are changes to asd.rb
-          if git diff --quiet HEAD -- asd.rb; then
-            echo "No changes in asd.rb, skipping commit"
-          else
-            git add ./asd.rb
-            git commit -m "Update to ${{ steps.latest_release.outputs.tag }}"
-            git push origin 1.x
-          fi
+          git add ./asd.rb
+          git commit -m "Update to ${{ steps.latest_release.outputs.tag }}" || echo "No changes to commit"
+          git push origin 1.x
