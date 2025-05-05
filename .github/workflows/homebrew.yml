@@ -17,13 +17,6 @@ jobs:
           git config --local user.name "GitHub Action"
           git pull origin 1.x
 
-      - name: Pull, commit, and push to homebrew fomula repository
-        run: |
-          git pull origin 1.x
-          git config --local user.email "action@github.com"
-          git commit -am "Update to ${{ steps.latest_release.outputs.tag }}" --allow-empty
-          git push origin 1.x
-
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
@@ -55,18 +48,17 @@ jobs:
 
       - name: Update Ruby file
         run: |
-          pwd
-          ls
           if [ -f "./asd.rb" ]; then 
-          ruby -pi -e "gsub(/url \".*\"/, \"url \\\"https://github.com/alps-asd/app-state-diagram/releases/download/${{ steps.latest_release.outputs.tag }}/asd.phar\\\"\")" ./asd.rb
-          ruby -pi -e "gsub(/sha256 \".*\"/, \"sha256 \\\"${{ steps.sha.outputs.sha }}\\\"\")" ./asd.rb
+            ruby -pi -e "gsub(/url \".*\"/, \"url \\\"https://github.com/alps-asd/app-state-diagram/releases/download/${{ steps.latest_release.outputs.tag }}/asd.phar\\\"\")" ./asd.rb
+            ruby -pi -e "gsub(/sha256 \".*\"/, \"sha256 \\\"${{ steps.sha.outputs.sha }}\\\"\")" ./asd.rb
           else
-          echo "asd.rb not found"
+            echo "asd.rb not found"
           fi
 
       - name: Commit and push if it changed
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git commit -am "Update to ${{ steps.latest_release.outputs.tag }}" --allow-empty
-          git push
+          git add ./asd.rb
+          git commit -m "Update to ${{ steps.latest_release.outputs.tag }}" || echo "No changes to commit"
+          git push origin 1.x
