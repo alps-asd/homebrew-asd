@@ -9,20 +9,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Set Git user information and pull
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git pull origin 1.x
-
-      - name: Pull, commit, and push to homebrew fomula repository
-        run: |
-          git pull origin 1.x
-          git config --local user.email "action@github.com"
-          git commit -am "Update to ${{ steps.latest_release.outputs.tag }}" --allow-empty
-          git push origin 1.x
+        uses: actions/checkout@v4
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -32,41 +19,182 @@ jobs:
       - name: Install dependencies
         run: gem install octokit faraday
 
-      - name: Fetch latest release tag
+      - name: Find latest release with asd.phar
         id: latest_release
         run: |
           echo "require 'octokit'" >> script.rb
           echo "client = Octokit::Client.new(access_token: ENV['GITHUB_TOKEN'])" >> script.rb
           echo "repo = 'alps-asd/app-state-diagram'" >> script.rb
-          echo "latest_release = client.latest_release(repo)" >> script.rb
-          echo "puts \"::set-output name=tag::#{latest_release.tag_name}\"" >> script.rb
+          echo "" >> script.rb
+          echo "# Get all releases" >> script.rb
+          echo "releases = client.releases(repo)" >> script.rb
+          echo "puts \"Found #{releases.length} releases\"" >> script.rb
+          echo "" >> script.rb
+          echo "# Find the latest release that has asd.phar" >> script.rb
+          echo "latest_with_phar = nil" >> script.rb
+          echo "releases.each do |release|" >> script.rb
+          echo "  puts \"Checking release: #{release.tag_name}\"" >> script.rb
+          echo "  has_phar = release.assets.any? { |asset| asset.name == 'asd.phar' }" >> script.rb
+          echo "  if has_phar" >> script.rb
+          echo "    puts \"Found asd.phar in release: #{release.tag_name}\"" >> script.rb
+          echo "    latest_with_phar = release" >> script.rb
+          echo "    break" >> script.rb
+          echo "  else" >> script.rb
+          echo "    puts \"No asd.phar in release: #{release.tag_name}\"" >> script.rb
+          echo "    puts \"Available assets: #{release.assets.map(&:name).join(', ')}\"" >> script.rb
+          echo "  end" >> script.rb
+          echo "end" >> script.rb
+          echo "" >> script.rb
+          echo "if latest_with_phar" >> script.rb
+          echo "  puts \"::set-output name=tag::#{latest_with_phar.tag_name}\"" >> script.rb
+          echo "  puts \"Latest release with asd.phar: #{latest_with_phar.tag_name}\"" >> script.rb
+          echo "else" >> script.rb
+          echo "  puts \"No release found with asd.phar\"" >> script.rb
+          echo "  exit 1" >> script.rb
+          echo "end" >> script.rb
           ruby script.rb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download release phar
+      - name: Check if phar exists before download
         run: |
-          wget https://github.com/alps-asd/app-state-diagram/releases/download/${{ steps.latest_release.outputs.tag }}/asd.phar
+          TAG="${{ steps.latest_release.outputs.tag }}"
+          URL="https://github.com/alps-asd/app-state-diagram/releases/download/$TAG/asd.phar"
+          echo "Checking URL: $URL"
+          
+          # Use curl to check if the file exists
+          if curl --output /dev/null --silent --head --fail "$URL"; then
+            echo "✅ PHAR file exists at $URL"
+            echo "PHAR_EXISTS=true" >> $GITHUB_ENV
+          else
+            echo "❌ PHAR file does not exist at $URL"
+            echo "PHAR_EXISTS=false" >> $GITHUB_ENV
+          
+            # Try to get more information about available assets
+            echo "Let's check what assets are actually available:"
+            curl -s "https://api.github.com/repos/alps-asd/app-state-diagram/releases/tags/$TAG" | jq '.assets[].name' || echo "Failed to get asset info"
+            exit 1
+          fi
+
+      - name: Download release phar
+        if: env.PHAR_EXISTS == 'true'
+        run: |
+          URL="https://github.com/alps-asd/app-state-diagram/releases/download/${{ steps.latest_release.outputs.tag }}/asd.phar"
+          echo "Downloading from: $URL"
+          
+          if wget -O asd.phar "$URL"; then
+            echo "✅ Successfully downloaded asd.phar"
+            ls -la asd.phar
+          
+            # Verify it's not an error page
+            if file asd.phar | grep -q "HTML"; then
+              echo "❌ Downloaded file appears to be HTML (likely an error page)"
+              cat asd.phar
+              exit 1
+            fi
+          else
+            echo "❌ Failed to download asd.phar"
+            exit 1
+          fi
 
       - name: Calculate SHA256
+        if: env.PHAR_EXISTS == 'true'
         id: sha
         run: |
-          echo "::set-output name=sha::$(sha256sum asd.phar | awk '{ print $1 }')"
+          sha_value=$(sha256sum asd.phar | awk '{ print $1 }')
+          echo "SHA256: $sha_value"
+          echo "::set-output name=sha::$sha_value"
+
+      - name: Get current version from asd.rb
+        id: current_version
+        run: |
+          if [ -f "./asd.rb" ]; then
+            current_version=$(grep 'url.*releases/download' ./asd.rb | sed -n 's/.*download\/\([^\/]*\)\/.*/\1/p')
+            echo "current=$current_version" >> $GITHUB_OUTPUT
+            echo "Current version in asd.rb: $current_version"
+          else
+            echo "asd.rb not found"
+            exit 1
+          fi
+
+      - name: Check if update is needed
+        id: check_update
+        run: |
+          current="${{ steps.current_version.outputs.current }}"
+          latest="${{ steps.latest_release.outputs.tag }}"
+          
+          if [ "$current" != "$latest" ]; then
+            echo "update_needed=true" >> $GITHUB_OUTPUT
+            echo "📝 Update needed: $current → $latest"
+          else
+            echo "update_needed=false" >> $GITHUB_OUTPUT
+            echo "✅ Already up to date: $current"
+          fi
 
       - name: Update Ruby file
+        if: env.PHAR_EXISTS == 'true' && steps.check_update.outputs.update_needed == 'true'
         run: |
-          pwd
-          ls
           if [ -f "./asd.rb" ]; then 
-          ruby -pi -e "gsub(/url \".*\"/, \"url \\\"https://github.com/alps-asd/app-state-diagram/releases/download/${{ steps.latest_release.outputs.tag }}/asd.phar\\\"\")" ./asd.rb
-          ruby -pi -e "gsub(/sha256 \".*\"/, \"sha256 \\\"${{ steps.sha.outputs.sha }}\\\"\")" ./asd.rb
+            echo "Updating asd.rb file..."
+          
+            # Create backup
+            cp ./asd.rb ./asd.rb.backup
+          
+            # Update URL and SHA256
+            NEW_URL="https://github.com/alps-asd/app-state-diagram/releases/download/${{ steps.latest_release.outputs.tag }}/asd.phar"
+            NEW_SHA="${{ steps.sha.outputs.sha }}"
+          
+            # Use sed to update the file
+            sed -i.bak \
+              -e "s|url \".*\"|url \"$NEW_URL\"|" \
+              -e "s|sha256 \".*\"|sha256 \"$NEW_SHA\"|" \
+              ./asd.rb
+          
+            echo "Updated asd.rb:"
+            echo "- URL: $NEW_URL"
+            echo "- SHA256: $NEW_SHA"
+          
+            # Show diff
+            echo "Changes made:"
+            diff ./asd.rb.backup ./asd.rb || true
+          
+            # Cleanup
+            rm -f ./asd.rb.backup ./asd.rb.bak
           else
-          echo "asd.rb not found"
+            echo "❌ asd.rb not found"
+            exit 1
           fi
 
       - name: Commit and push if it changed
+        if: env.PHAR_EXISTS == 'true' && steps.check_update.outputs.update_needed == 'true'
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git commit -am "Update to ${{ steps.latest_release.outputs.tag }}" --allow-empty
-          git push
+          
+          # Check if there are changes
+          if git diff --quiet ./asd.rb; then
+            echo "No changes to commit"
+          else
+            echo "Committing changes..."
+            git add ./asd.rb
+            git commit -m "Update asd.rb to ${{ steps.latest_release.outputs.tag }}"
+            git push
+            echo "✅ Successfully updated and pushed changes"
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## 📋 Update Summary"
+          echo "- Current version: ${{ steps.current_version.outputs.current }}"
+          echo "- Latest available: ${{ steps.latest_release.outputs.tag }}"
+          echo "- PHAR exists: ${{ env.PHAR_EXISTS }}"
+          echo "- Update needed: ${{ steps.check_update.outputs.update_needed }}"
+          
+          if [ "${{ env.PHAR_EXISTS }}" == "true" ] && [ "${{ steps.check_update.outputs.update_needed }}" == "true" ]; then
+            echo "- Status: ✅ Updated successfully"
+          elif [ "${{ steps.check_update.outputs.update_needed }}" == "false" ]; then
+            echo "- Status: ✅ Already up to date"
+          else
+            echo "- Status: ❌ Update failed or skipped"
+          fi
