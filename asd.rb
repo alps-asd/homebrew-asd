@@ -8,6 +8,7 @@ class Asd < Formula
   depends_on "php@8.4"
   depends_on "composer" => :build
   depends_on "node"
+  depends_on "graphviz"
 
 
   def install
