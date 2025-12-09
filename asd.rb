@@ -21,6 +21,12 @@ class Asd < Formula
       # npm install の実行
       system "npm", "install", "--prefix", "#{libexec}/asd-sync"
 
+      # alps2dot のビルド
+      system "npm", "install", "--prefix", "#{libexec}/alps2dot"
+      Dir.chdir("#{libexec}/alps2dot") do
+        system "npm", "run", "build"
+      end
+
       # 必要なファイルに実行権限を付与し、shebangを追加
       bin_asd = "#{libexec}/bin/asd"
       chmod 0755, bin_asd
