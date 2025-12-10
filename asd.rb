@@ -12,11 +12,14 @@ class Asd < Formula
 
 
   def install
+      # Get the PHP binary path from the dependency
+      php_bin = Formula["php@8.4"].opt_bin/"php"
+
       # PHARファイルをlibexecにインストール
       libexec.install "asd.phar"
 
       # PHARファイルを解凍
-      system "php -r \"(new Phar('#{libexec}/asd.phar'))->extractTo('#{libexec}');\""
+      system php_bin, "-r", "(new Phar('#{libexec}/asd.phar'))->extractTo('#{libexec}');"
 
       # npm install の実行
       system "npm", "install", "--prefix", "#{libexec}/asd-sync"
@@ -43,10 +46,10 @@ class Asd < Formula
       EOS
       (bin/"asdw").chmod 0755
 
-      # asd.phar 実行スクリプトの作成
+      # asd.phar 実行スクリプトの作成 (use php@8.4 explicitly)
       (bin/"asd").write <<~EOS
         #!/bin/bash
-        php "#{libexec}/asd.phar" "$@"
+        "#{Formula["php@8.4"].opt_bin}/php" "#{libexec}/asd.phar" "$@"
       EOS
       (bin/"asd").chmod 0755
     end
