@@ -5,15 +5,14 @@ class Asd < Formula
   sha256 "ed443bc76e410e92a5b1b819e41f7a944f430c203786ba33628e66ad70ad7c1f"
   license "MIT"
 
-  depends_on "php@8.4"
-  depends_on "composer" => :build
+  depends_on "shivammathur/php/php@8.4"
   depends_on "node"
   depends_on "graphviz"
 
 
   def install
       # Get the PHP binary path from the dependency
-      php_bin = Formula["php@8.4"].opt_bin/"php"
+      php_bin = Formula["shivammathur/php/php@8.4"].opt_bin/"php"
 
       # PHARファイルをlibexecにインストール
       libexec.install "asd.phar"
@@ -46,10 +45,10 @@ class Asd < Formula
       EOS
       (bin/"asdw").chmod 0755
 
-      # asd.phar 実行スクリプトの作成 (use php@8.4 explicitly)
+      # asd.phar 実行スクリプトの作成 (use shivammathur php@8.4 explicitly)
       (bin/"asd").write <<~EOS
         #!/bin/bash
-        "#{Formula["php@8.4"].opt_bin}/php" "#{libexec}/asd.phar" "$@"
+        "#{Formula["shivammathur/php/php@8.4"].opt_bin}/php" "#{libexec}/asd.phar" "$@"
       EOS
       (bin/"asd").chmod 0755
     end
