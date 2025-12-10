@@ -1,8 +1,8 @@
 class Asd < Formula
   desc "Reads ALPS documents and produces a full state diagram and hyperlinked documentation."
   homepage "https://alps-asd.github.io/"
-  url "https://github.com/alps-asd/app-state-diagram/releases/download/0.15.0/asd.phar"
-  sha256 "6ae95ff2904f2fb03615fbbd228817327d02fca6dc4d7cdaf18b88b79022d307"
+  url "https://github.com/alps-asd/app-state-diagram/releases/download/0.16.0/asd.phar"
+  sha256 "ed443bc76e410e92a5b1b819e41f7a944f430c203786ba33628e66ad70ad7c1f"
   license "MIT"
 
   depends_on "php@8.4"
