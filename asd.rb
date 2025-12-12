@@ -7,6 +7,7 @@ class Asd < Formula
 
   depends_on "node@18"
   depends_on "pnpm"
+  depends_on "graphviz" => :optional  # Better multibyte character support in SVG output
 
   def install
     system "pnpm", "install"
