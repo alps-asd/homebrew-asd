@@ -1,8 +1,8 @@
 class Asd < Formula
   desc "Generates state diagrams and documentation from ALPS profiles"
   homepage "https://alps-asd.github.io/"
-  url "https://github.com/alps-asd/app-state-diagram.git", branch: "2.x"
-  version "2.0.0-alpha.1"
+  url "https://github.com/alps-asd/app-state-diagram.git", tag: "v2.0.0-alpha.2"
+  version "2.0.0-alpha.2"
   license "MIT"
 
   depends_on "node@20"
