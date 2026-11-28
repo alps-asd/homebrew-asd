@@ -1,8 +1,8 @@
 class Asd < Formula
   desc "Generates state diagrams and documentation from ALPS profiles"
   homepage "https://alps-asd.github.io/"
-  url "https://github.com/alps-asd/app-state-diagram.git", tag: "v2.0.0"
-  version "2.0.0"
+  url "https://github.com/alps-asd/app-state-diagram.git", tag: "v2.1.0"
+  version "2.1.0"
   license "MIT"
 
   depends_on "node@20"
@@ -16,7 +16,9 @@ class Asd < Formula
     inreplace "package.json", /,?\s*"packageManager":\s*"[^"]*"/, ""
 
     # Use copy instead of symlinks to prevent broken links after Homebrew moves files
-    system "pnpm", "install", "--package-import-method", "copy"
+    # pnpm 12 fails the install on dependency build scripts it was not allowed to run
+    # (ERR_PNPM_IGNORED_BUILDS); the build does not need them.
+    system "pnpm", "install", "--package-import-method", "copy", "--config.strict-dep-builds=false"
     system "pnpm", "run", "build"
 
     libexec.install Dir["*"]
